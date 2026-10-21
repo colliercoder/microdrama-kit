@@ -4,6 +4,7 @@ Consistency across a season comes from this file, never from per-episode prompti
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -163,8 +164,25 @@ class Bible:
         style = self.data.get("style") or {}
         return [str(n).rstrip(". ") for n in (style.get("global_negative") or [])]
 
-    def rules(self, stage: str) -> list[str]:
-        return list(((self.data.get("rules") or {}).get(stage)) or [])
+    def rules(self, stage: str, shot: dict | None = None) -> list[str]:
+        """Rules for a stage. With a shot, rules that name a character who is not in
+        that shot are left out, so they cannot pull the character into an empty frame."""
+        rules = list(((self.data.get("rules") or {}).get(stage)) or [])
+        if shot is None:
+            return rules
+        in_shot = {c["id"] for c in shot.get("characters") or []}
+        absent = [c for c in self.characters if c["id"] not in in_shot]
+        def names(c):
+            return {str(c["id"]).lower(), str(c.get("name", c["id"])).lower()}
+        return [r for r in rules if not any(
+            re.search(rf"\b{re.escape(n)}\b", r.lower()) for c in absent for n in names(c))]
+
+    def cast_line(self, shot: dict) -> str:
+        cast = shot.get("characters") or []
+        if not cast:
+            return "No characters in this shot: an empty scene with no animals, no creatures and no people."
+        names = ", ".join(self.character(c["id"]).get("name", c["id"]) for c in cast)
+        return f"The only characters in this shot: {names}. No other animals, creatures or people."
 
     # -- prompt building -------------------------------------------------------
     def character_lock(self, cid: str, era_id: str | None) -> str:
@@ -191,7 +209,8 @@ class Bible:
         for cast in shot.get("characters") or []:
             chunks.append("Character, match the reference image exactly: " +
                           self.character_lock(cast["id"], cast.get("era")))
-        rules = self.rules("image")
+        chunks.append(self.cast_line(shot))
+        rules = self.rules("image", shot)
         if rules:
             chunks.append("Rules: " + " ".join(rules))
         chunks.append("Avoid: " + "; ".join(self.negatives("image")) + ".")
@@ -210,22 +229,29 @@ class Bible:
                           f"{self.character(cast['id'])['description']}.")
         if not shot.get("speaks"):
             chunks.append("Nobody talks, mouths stay closed, no lip movement.")
-        rules = self.rules("video")
+        chunks.append(self.cast_line(shot))
+        rules = self.rules("video", shot)
         if rules:
             chunks.append("Rules: " + " ".join(rules))
         chunks.append("Avoid: " + "; ".join(self.negatives("video")) + ".")
         return " ".join(chunks)
 
-    def review_checklist(self) -> list[str]:
+    def review_checklist(self, shot: dict | None = None) -> list[str]:
+        cast = (shot or {}).get("characters") or []
         checks = [
-            "Every character matches its reference image (species, face, markings, outfit).",
+            ("Every character matches its reference image (species, face, markings, outfit)." if cast else
+             "There are no characters at all in the frame: no animals, creatures or people (scenery only)."),
             "No text, letters, captions, logos or watermarks anywhere in the frame.",
             "Correct anatomy: no extra or missing limbs, no fused or duplicated bodies.",
-            "The image matches the shot's intended visual description.",
+            ("The main subject, setting and action match the intended shot. Fail only if one of those is "
+             "clearly wrong or missing; small differences in pose, gaze, expression or lighting are a pass."),
             "Vertical 9:16 composition with the subject clearly framed.",
         ]
+        if cast:
+            names = ", ".join(self.character(c["id"]).get("name", c["id"]) for c in cast)
+            checks.append(f"The only characters visible are: {names}. Any extra animal, creature or person is a fail.")
         checks += [f"Does not show: {n}" for n in self.negatives("image")]
-        checks += self.rules("image")
+        checks += self.rules("image", shot) if shot else self.rules("image")
         return checks
 
     # -- writing ---------------------------------------------------------------

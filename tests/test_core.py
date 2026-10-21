@@ -108,6 +108,36 @@ class BibleTests(unittest.TestCase):
         self.assertIn("mouths stay closed", motion)
         self.assertIn("no humans", motion)  # negatives repeated in the video prompt on purpose
 
+    def test_character_rules_stay_out_of_empty_shots(self):
+        # Regression (paid E2E 2026-10-20): "Moss is tiny next to everything: the brass lens..."
+        # leaked into the empty storm-wave shot and the image model invented an animal there.
+        b = Bible.load(EXAMPLE)
+        empty = {"visual": "a wave breaks on rocks", "location": "shore", "characters": []}
+        with_moss = {"visual": "Moss at the lens", "location": "lamp_room", "characters": [{"id": "moss", "era": "young"}]}
+        moss_rule = next(r for r in b.rules("image") if "Moss" in r)
+        self.assertNotIn(moss_rule, b.rules("image", empty))
+        self.assertIn(moss_rule, b.rules("image", with_moss))
+        self.assertIn("Every prop a character touches is in the still; the video model will not add it later.",
+                      b.rules("image", empty))  # rules naming nobody still apply
+        self.assertNotIn(moss_rule, b.still_prompt(empty))
+        self.assertIn("No characters in this shot", b.still_prompt(empty))
+        self.assertIn("No characters in this shot", b.motion_prompt(empty))
+        self.assertNotIn("Moss stays upright", b.motion_prompt(empty))
+        self.assertIn("The only characters in this shot: Moss.", b.still_prompt(with_moss))
+
+    def test_review_checklist_checks_the_cast(self):
+        # Regression (paid E2E): the reviewer passed an empty shot with an invented animal in it.
+        b = Bible.load(EXAMPLE)
+        empty = b.review_checklist({"visual": "waves", "characters": []})
+        self.assertTrue(empty[0].startswith("There are no characters at all"))
+        self.assertFalse(any("Moss" in c for c in empty))
+        cast = b.review_checklist({"visual": "x", "characters": [{"id": "moss", "era": "young"}]})
+        self.assertIn("The only characters visible are: Moss. Any extra animal, creature or person is a fail.", cast)
+        # Calibrated intent check: details like gaze or expression must not fail a still.
+        self.assertTrue(any("small differences in pose, gaze, expression" in c for c in cast))
+        self.assertIn("Checklist:\n1. There are no characters at all",
+                      review.prompt(b, {"visual": "waves", "characters": []}))
+
     def test_learned_rules_file_is_merged(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -347,6 +377,32 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(issues, ["check 2: human hand"])
         ok, issues = review.decide({"checks": [{"n": 1, "result": "pass"}], "overall": "looks great"}, 3)
         self.assertFalse(ok, "skipped checks must fail, whatever the model says overall")
+
+
+class SpendTests(unittest.TestCase):
+    def tearDown(self):
+        from mdk import spend
+        spend.LEDGER = None
+
+    def test_ledger_and_guard(self):
+        from mdk import spend
+        from mdk.pipeline import Episode, Halt
+        with tempfile.TemporaryDirectory() as tmp:
+            series = Path(tmp) / "show"
+            series.mkdir()
+            (series / "show-bible.yaml").write_text((EXAMPLE / "show-bible.yaml").read_text())
+            ep = Episode(series, "E01", max_spend=1.0)
+            self.assertEqual(spend.LEDGER, ep.dir / "spend.jsonl")
+            self.assertIsNone(spend.usage_cost({"usage": {"prompt_tokens": 3}}))
+            spend.record("openrouter", "image", "m", spend.usage_cost({"usage": {"cost": 0.4}}), estimated=False)
+            spend.record("elevenlabs", "voice", "v", 0.3, estimated=True)
+            spend.record("openrouter", "text", "m", None, estimated=False)
+            self.assertAlmostEqual(spend.total(), 0.7)
+            self.assertEqual(spend.summary(), {"openrouter": 0.4, "elevenlabs (estimated)": 0.3})
+            ep.guard(0.3, "fits exactly")
+            with self.assertRaises(Halt):
+                ep.guard(0.31, "one cent over")
+            Episode(series, "E01").guard(100.0, "no cap set")
 
 
 class DryRunTests(unittest.TestCase):

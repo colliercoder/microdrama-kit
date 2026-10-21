@@ -14,7 +14,7 @@ SYSTEM = ("You are a strict continuity supervisor for an animated series. You in
 
 
 def prompt(bible: Bible, shot: dict) -> str:
-    checks = bible.review_checklist()
+    checks = bible.review_checklist(shot)
     numbered = "\n".join(f"{i}. {c}" for i, c in enumerate(checks, 1))
     return f"""The FIRST image is the still to inspect. Any further images are character reference sheets.
 
