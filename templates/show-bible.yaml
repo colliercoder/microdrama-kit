@@ -1,0 +1,85 @@
+# SHOW BIBLE - the single source of creative truth.
+# Every step (storyboard, stills, review, clips, voice) reads this file.
+# Consistency across a season comes from HERE, never from per-episode prompting.
+# Format: a simple YAML subset (indentation, "- " lists, quotes). No tabs.
+
+series:
+  title: "My Series"
+  logline: "One sentence: who, what they want, what stands in the way."
+  narrator: "Who tells the story and from when. Example: the hero, years later, telling his own legend."
+  tone: "Example: gritty, warm, a little mythic. Entertainment first."
+  format:
+    aspect_ratio: "9:16"
+    max_seconds: 59
+    shots_per_episode: 7
+    ending: "Every episode ends on a door, not a summary: an unresolved image and an open question."
+
+style:
+  look: "Example: photoreal cinematic, volumetric light, moody, film grain"
+  # Things that must NEVER appear. Short phrases. Added to every image and video prompt
+  # and checked by the automated review.
+  global_negative:
+    - "no on-screen text, no captions, no letters, no logos, no watermark"
+    - "no split screen, no collage, no montage in a single frame"
+    - "no extra limbs, no duplicated characters, no malformed anatomy"
+    - "no cartoon or cel-shaded look unless the style says so"
+
+characters:
+  - id: hero
+    name: "Hero Name"
+    description: "Full physical description an image model can follow: species, build, face, coat or skin, eyes, signature item."
+    constant_traits: "What never changes at any age: markings, eye color, the signature item."
+    eras:
+      # One entry per look the character has over the season. Put your own art in refs/
+      # under the same name, or let `python3 -m mdk refs` generate a sheet you then approve.
+      - id: young
+        look: "How they look in this era: age, outfit, props."
+        ref: refs/hero-young.png
+      - id: present
+        look: "The narrator look, older and wiser."
+        ref: refs/hero-present.png
+
+locations:
+  - id: home
+    description: "What the place looks like."
+    lighting: "The REAL light source here (daylight, lamp, screen glow). Underground scenes say so."
+
+voice:
+  provider: elevenlabs
+  # ElevenLabs: Voices, pick or design a voice, copy its Voice ID. Never name a real
+  # person when designing a voice; describe the qualities (gravelly, warm, Western drawl).
+  voice_id: "REPLACE_WITH_YOUR_ELEVENLABS_VOICE_ID"
+  model_id: eleven_v3
+  stability: 0.5
+  similarity_boost: 0.75
+  style: 0.5
+  use_speaker_boost: true
+  # Words the voice mispronounces, respelled for the voice only. Captions keep the real spelling.
+  # Example (one per line, indented under pronunciations):
+  #   "Nguyen": "Win"
+  pronunciations: {}
+
+# Rules you learn while fixing real output. `python3 -m mdk learn` adds to
+# learned-rules.yaml, which is merged in here at load time.
+rules:
+  image:
+    - "Every prop a character touches is visible in the frame."
+  video:
+    - "The character stays exactly on model from the first frame to the last; no morphing."
+  voice: []
+  story:
+    - "Narration describes what is on screen or the narrator's reflection, never off-screen dialogue."
+
+production:
+  backend: openrouter
+  text_model: google/gemini-2.5-flash
+  image_model: google/gemini-2.5-flash-image
+  video_model: google/veo-3.1-lite
+  video_resolution: 720p
+  higgsfield_image_model: nano_banana_pro
+  higgsfield_video_model: veo3_1_lite
+  max_rerolls: 2
+  max_slowdown: 1.25
+  elevenlabs_usd_per_1k_chars: 0.30
+  output_width: 1080
+  output_height: 1920

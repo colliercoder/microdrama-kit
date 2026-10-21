@@ -1,0 +1,191 @@
+{
+ "_note": "subset of GET https://openrouter.ai/api/v1/videos/models captured 2026-10-20",
+ "data": [
+  {
+   "id": "x-ai/grok-imagine-video-1.5-lite",
+   "supported_durations": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "supported_resolutions": [
+    "480p",
+    "720p",
+    "1080p"
+   ],
+   "supported_aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3"
+   ],
+   "supported_frame_images": [
+    "first_frame"
+   ],
+   "pricing_skus": {
+    "cents_per_image_input": "1",
+    "cents_per_video_output_second_480p": "2",
+    "cents_per_video_output_second_720p": "3",
+    "cents_per_video_output_second_1080p": "14"
+   }
+  },
+  {
+   "id": "bytedance/seedance-2.0-mini",
+   "supported_durations": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "supported_resolutions": [
+    "480p",
+    "720p"
+   ],
+   "supported_aspect_ratios": [
+    "1:1",
+    "3:4",
+    "9:16",
+    "4:3",
+    "16:9",
+    "21:9",
+    "9:21"
+   ],
+   "supported_frame_images": [
+    "first_frame",
+    "last_frame"
+   ],
+   "pricing_skus": {
+    "video_tokens": "0.0000035",
+    "video_tokens_without_audio": "0.0000035",
+    "video_tokens_with_video_input": "0.0000021"
+   }
+  },
+  {
+   "id": "runway/aleph-2",
+   "supported_durations": null,
+   "supported_resolutions": null,
+   "supported_aspect_ratios": [
+    "16:9",
+    "4:3",
+    "3:2",
+    "1:1",
+    "2:3",
+    "3:4",
+    "9:16",
+    "21:9"
+   ],
+   "supported_frame_images": null,
+   "pricing_skus": {
+    "cents_per_second_output": "28",
+    "minimum_cents_per_generation": "56"
+   }
+  },
+  {
+   "id": "kwaivgi/kling-v3.0-std",
+   "supported_durations": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "supported_resolutions": [
+    "720p"
+   ],
+   "supported_aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "supported_frame_images": [
+    "first_frame",
+    "last_frame"
+   ],
+   "pricing_skus": {
+    "duration_seconds": "0.084",
+    "duration_seconds_with_audio": "0.126",
+    "text_to_video_duration_seconds_480p": "0.084",
+    "text_to_video_duration_seconds_720p": "0.084",
+    "image_to_video_duration_seconds_720p": "0.084",
+    "text_to_video_duration_seconds_1080p": "0.084",
+    "image_to_video_duration_seconds_1080p": "0.084"
+   }
+  },
+  {
+   "id": "google/veo-3.1-lite",
+   "supported_durations": [
+    8,
+    4,
+    6
+   ],
+   "supported_resolutions": [
+    "720p",
+    "1080p"
+   ],
+   "supported_aspect_ratios": [
+    "16:9",
+    "9:16"
+   ],
+   "supported_frame_images": [
+    "first_frame",
+    "last_frame"
+   ],
+   "pricing_skus": {
+    "duration_seconds_with_audio": "0.08",
+    "duration_seconds_without_audio": "0.05",
+    "duration_seconds_with_audio_720p": "0.05",
+    "duration_seconds_without_audio_720p": "0.03"
+   }
+  },
+  {
+   "id": "minimax/hailuo-2.3",
+   "supported_durations": [
+    6,
+    10
+   ],
+   "supported_resolutions": [
+    "1080p"
+   ],
+   "supported_aspect_ratios": [
+    "16:9"
+   ],
+   "supported_frame_images": [
+    "first_frame"
+   ],
+   "pricing_skus": {
+    "duration_seconds": "0.0817"
+   }
+  }
+ ]
+}

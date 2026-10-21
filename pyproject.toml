@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "microdrama-kit"
+version = "0.1.0"
+description = "Make animated vertical micro-drama episodes: show bible, storyboard, stills, review, clips, one-take narration, final edit."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Dan Gauerke" }]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Homepage = "https://danielgauerke.com"
+
+[project.scripts]
+mdk = "mdk.cli:main"
+
+[tool.setuptools]
+packages = ["mdk"]

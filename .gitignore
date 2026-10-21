@@ -1,0 +1,29 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# generated media and per-episode outputs
+**/refs/*.png
+**/refs/*.jpg
+**/refs/*.jpeg
+**/refs/*.webp
+**/episodes/*/vo/
+**/episodes/*/stills/
+**/episodes/*/clips/
+**/episodes/*/build/
+**/episodes/*/out/
+**/episodes/*/review.json
+**/episodes/*/approved.json
+**/episodes/*/contact-sheet.html
+*.mp4
+*.mp3
+*.m4a
+
+# OS
+.DS_Store
