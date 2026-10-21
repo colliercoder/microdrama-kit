@@ -29,7 +29,7 @@ That is all.
 ## Quickstart (about 3 minutes to your first dry run)
 
 ```bash
-git clone <this repo> microdrama-kit && cd microdrama-kit
+git clone https://github.com/colliercoder/microdrama-kit.git && cd microdrama-kit
 cp .env.example .env            # paste your keys into .env
 
 # 1. See the whole pipeline on the example, with costs, spending nothing
