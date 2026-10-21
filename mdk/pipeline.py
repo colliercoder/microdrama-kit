@@ -25,6 +25,12 @@ from .bible import Bible
 TOKENS = {"storyboard": (3000, 3000), "review": (3500, 700), "bible": (1500, 3000)}
 
 
+def reroll_refs(previous: Path, refs: list[Path], barred: bool) -> list[Path]:
+    """Reference images for a reroll: the previous still (edit what was wrong) plus the
+    character refs, except when the still has painted bars, which an edit would keep."""
+    return list(refs) if barred else [previous] + list(refs)
+
+
 class Halt(Exception):
     """Stop the pipeline cleanly with a message for the user (not a crash)."""
 
@@ -323,7 +329,8 @@ class Episode:
                     images=[path] + self.refs_for(s), max_tokens=2000))
                 passed, issues = review.decide(reply, len(self.bible.review_checklist(s)))
                 # Code check, not the model's opinion: black bars painted into the still.
-                if ffmpeg.black_bands(path):
+                barred = ffmpeg.black_bands(path)
+                if barred:
                     passed = False
                     issues = issues + ["black letterbox or pillarbox bars at the frame edges; "
                                        "the image must fill the whole 9:16 frame edge to edge"]
@@ -336,7 +343,8 @@ class Episode:
                 keep = path.with_name(f"{s['id']}.v{attempt}.png")
                 shutil.copy2(path, keep)
                 prompt = self.bible.still_prompt(s) + review.reroll_instruction(issues, reply.get("fix", ""))
-                self.backend.generate_image(prompt, [keep] + self.refs_for(s), path)
+                # Editing a barred still keeps its bars, so regenerate from the character refs only.
+                self.backend.generate_image(prompt, reroll_refs(keep, self.refs_for(s), barred), path)
             report[s["id"]] = {"pass": passed, "issues": issues, "tries": attempt + 1,
                                "still_mtime": self._mtime(path), "checklist": self.checklist_hash(s)}
             self.review_path.write_text(json.dumps(report, indent=2))

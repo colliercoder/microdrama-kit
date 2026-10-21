@@ -550,3 +550,12 @@ class BlackBandTests(unittest.TestCase):
     def test_still_prompt_asks_for_full_frame(self):
         import mdk.bible as b
         self.assertIn("fills the whole frame edge to edge", open(b.__file__).read())
+
+
+class RerollRefsTests(unittest.TestCase):
+    def test_barred_still_is_not_reused_as_a_reference(self):
+        from pathlib import Path
+        from mdk.pipeline import reroll_refs
+        prev, ref = Path("04.v1.png"), Path("moss.png")
+        self.assertEqual(reroll_refs(prev, [ref], barred=False), [prev, ref])
+        self.assertEqual(reroll_refs(prev, [ref], barred=True), [ref])
