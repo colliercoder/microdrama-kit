@@ -14,7 +14,7 @@ from mdk.bible import Bible, BibleError
 
 ROOT = Path(__file__).resolve().parent.parent
 FIX = Path(__file__).resolve().parent / "fixtures"
-EXAMPLE = ROOT / "examples" / "underdawg"
+EXAMPLE = ROOT / "examples" / "the-last-light"
 
 
 def fixture(name):
@@ -93,17 +93,17 @@ class BibleTests(unittest.TestCase):
 
     def test_refs_negatives_and_prompts(self):
         b = Bible.load(EXAMPLE)
-        self.assertEqual(b.ref_path("hero", "pup"), EXAMPLE / "refs/hero-pup.png")
-        self.assertEqual(b.ref_path("hero", None), EXAMPLE / "refs/hero-pup.png")  # first era by default
+        self.assertEqual(b.ref_path("moss", "old"), EXAMPLE / "refs/moss-old.png")
+        self.assertEqual(b.ref_path("moss", None), EXAMPLE / "refs/moss-young.png")  # first era by default
         with self.assertRaises(BibleError):
-            b.era("hero", "astronaut")
+            b.era("moss", "astronaut")
         negs = b.negatives("image")
         self.assertTrue(any("no humans" in n for n in negs))
         self.assertFalse(any(r in negs for r in b.rules("image")), "rules must not be duplicated as negatives")
-        shot = {"visual": "a pup with a shovel", "location": "pit", "characters": [{"id": "hero", "era": "pup"}]}
+        shot = {"visual": "a hedgehog with a key", "location": "shore", "characters": [{"id": "moss", "era": "young"}]}
         still = b.still_prompt(shot)
-        self.assertIn("PUPPY", still)
-        self.assertIn("no daylight", still)
+        self.assertIn("yellow oilskin raincoat", still)
+        self.assertIn("night storm", still)
         motion = b.motion_prompt(shot)
         self.assertIn("mouths stay closed", motion)
         self.assertIn("no humans", motion)  # negatives repeated in the video prompt on purpose
@@ -117,7 +117,7 @@ class BibleTests(unittest.TestCase):
             b.add_rule("image", "Hard hats stay on.")  # no duplicates
             again = Bible.load(tmp)
             self.assertEqual(again.rules("image").count("Hard hats stay on."), 1)
-            self.assertIn("Does not show: no humans, no people, no human faces, no human hands; every character is a bulldog",
+            self.assertIn("Does not show: no humans, no people, no human faces, no human hands; every character is an animal",
                           again.review_checklist())
             self.assertIn("Hard hats stay on.", again.review_checklist())
             with self.assertRaises(BibleError):
@@ -310,21 +310,21 @@ class StoryboardTests(unittest.TestCase):
     def test_structured_example(self):
         board = storyboard.normalise(storyboard.parse_structured(
             (EXAMPLE / "episodes/E01/script.md").read_text(), "E01"))
-        self.assertEqual(len(board["shots"]), 7)
-        self.assertEqual(board["title"], 'E01 - "The Runt"')
-        self.assertEqual(board["shots"][1]["characters"], [{"id": "hero", "era": "pup"}, {"id": "crew", "era": "pit"}])
-        self.assertEqual(board["shots"][5]["characters"], [])
+        self.assertEqual(len(board["shots"]), 6)
+        self.assertEqual(board["title"], 'E01 - "The Night the Light Went Out"')
+        self.assertEqual(board["shots"][0]["characters"], [{"id": "moss", "era": "old"}])
+        self.assertEqual(board["shots"][3]["characters"], [])
         self.assertEqual(storyboard.validate(board, self.bible), [])
         self.assertLess(timing.estimate_seconds([s["narration"] for s in board["shots"]]), 59)
 
     def test_prose_is_not_structured(self):
-        self.assertIsNone(storyboard.parse_structured("# E01\n\nOnce upon a time a pup went down a mine.", "E01"))
+        self.assertIsNone(storyboard.parse_structured("# E01\n\nOnce upon a time a hedgehog climbed a lighthouse.", "E01"))
 
     def test_validation_catches_problems(self):
         board = {"shots": [
             {"id": "01", "visual": "x", "narration": "[low] He had 3 dogs.", "characters": [{"id": "ghost"}]},
             {"id": "01", "visual": "", "narration": "[this tag is far too long to be a real audio tag] ok",
-             "characters": [{"id": "hero", "era": "astronaut"}], "location": "moon"},
+             "characters": [{"id": "moss", "era": "astronaut"}], "location": "moon"},
         ]}
         problems = "\n".join(storyboard.validate(board, self.bible))
         for needle in ("not unique", "spell out numbers", "unknown character 'ghost'", "no visual",

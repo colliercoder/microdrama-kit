@@ -7,15 +7,14 @@ visual check, image-to-video clips, one continuous narration take, and the final
 
 By Dan Gauerke, [danielgauerke.com](https://danielgauerke.com).
 
-## The worked example: UNDERDAWG
+This is the pipeline behind UNDERDAWG, the Big Dog origin series: https://danielgauerke.com/big-dog
 
-This is the method behind **UNDERDAWG**, a 12-episode origin series about Big Dog, a
-bulldog who starts as a runt shovel-pup in a coal mine and ends up an AI builder.
-Watch it at [danielgauerke.com/big-dog](https://danielgauerke.com/big-dog).
+## The worked example: THE LAST LIGHT
 
-`examples/underdawg/` holds a text-only version of how the series was set up (the show
-bible and the first episode's script) so you can see a real bible and a real episode.
-No character art and no voice ship with it: bring your own.
+`examples/the-last-light/` is a made-up series to learn from: Moss, the smallest hedgehog
+on a storm-beaten island, inherits the lighthouse the night the lamp goes dark. It has a
+complete show bible and a six-shot first episode. No character art and no voice ship
+with it: generate the references with `refs` (or bring your own) and pick a voice.
 
 ## What you need
 
@@ -34,7 +33,7 @@ git clone <this repo> microdrama-kit && cd microdrama-kit
 cp .env.example .env            # paste your keys into .env
 
 # 1. See the whole pipeline on the example, with costs, spending nothing
-python3 -m mdk run examples/underdawg E01 --dry-run
+python3 -m mdk run examples/the-last-light E01 --dry-run
 
 # 2. Start your own series
 python3 -m mdk init shows/my-show --title "My Show"
@@ -79,7 +78,7 @@ without asking (for scripts and agents). `--dry-run` makes zero paid calls.
 
 ## The method (and why it is built this way)
 
-These are the lessons from making UNDERDAWG. Each one cost real money to learn.
+These are the lessons learned the hard way, each one paid for in rerolls.
 
 **1. Show bible first.** One file holds the characters, their looks per era, the
 locations and their real light, the voice, and the things that must never appear.
@@ -123,7 +122,7 @@ still prompt AND every motion prompt. Video models honor negatives less than ima
 models, so saying it twice is on purpose.
 
 **8. Every fix becomes a rule.** When you correct something, run
-`python3 -m mdk learn SERIES --stage image "every figure is a bulldog, including the ones in the background"`.
+`python3 -m mdk learn SERIES --stage image "every figure in frame is an animal, including the ones in the background"`.
 It goes into `learned-rules.yaml`, and every future prompt and review includes it. The
 pipeline gets better each episode instead of repeating mistakes.
 
@@ -154,12 +153,12 @@ for today's numbers. Pricier video models (Kling, Veo 3.1 full) can run 3 to 10 
 
 ```markdown
 ## Shot 2
-visual: A tiny bulldog pup stands upright in a mine cage among grown miners twice his size.
-location: pit
-characters: hero@pup, crew@pit
-camera: slow tilt down from the miners' faces to the pup
-motion: the cage sways gently, headlamp beams swing
-narration: [weary] First shift in the hole. Just a pup... [ominous] dropped a thousand feet into the dark.
+visual: Young Moss in his oversized yellow raincoat stands at the bottom of a spiral stone staircase, a brass key in both paws.
+location: lamp_room
+characters: moss@young
+camera: slow tilt up from Moss to the endless stairs above him
+motion: Moss looks up and tightens his grip on the key
+narration: [quietly] The old keeper left me one brass key... [wistful] and two hundred stairs.
 ```
 
 **Prose:** write the episode as a short story and `storyboard` asks the text model to
@@ -219,7 +218,7 @@ skill for it. Open the folder in Claude Code and say "make episode 2 of my show"
 ```
 mdk/                  the pipeline (standard library Python)
 templates/            show bible and episode script templates
-examples/underdawg/   the worked example (text only)
+examples/the-last-light/  the worked example (text only)
 tests/                python3 -m unittest
 ```
 

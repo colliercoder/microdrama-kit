@@ -1,0 +1,83 @@
+# THE LAST LIGHT - worked example show bible (text only, an original made-up character).
+# No reference images and no voice ship with it: run `python3 -m mdk refs examples/the-last-light`
+# (or drop your own art into refs/) and paste an ElevenLabs voice id below.
+
+series:
+  title: "THE LAST LIGHT"
+  logline: "Moss, the smallest hedgehog on a storm-beaten island, inherits the lighthouse the night the old keeper's lamp goes dark."
+  narrator: "Moss, old and silver-quilled, telling the story by a fire years later. The past plays as flashback under his voice."
+  tone: "Warm, brave, a little mythic. Cozy danger. Entertainment first."
+  format:
+    aspect_ratio: "9:16"
+    max_seconds: 59
+    shots_per_episode: 6
+    ending: "Every episode ends on a door: an unresolved image and a narrator line that opens a question."
+
+style:
+  look: "Photoreal live-action cinematic, storybook lighting, volumetric light, rich color, realistic fur and quills, shallow depth of field, film grain"
+  global_negative:
+    - "no humans, no people, no human faces, no human hands; every character is an animal"
+    - "no on-screen text, no captions, no letters, no logos, no watermark"
+    - "no split screen, no montage inside one frame"
+    - "no cartoon, no 3D-animated toy look, no cel shading"
+    - "no extra legs, no third arm, no duplicated limbs, no malformed anatomy"
+    - "no glowing eyes"
+
+characters:
+  - id: moss
+    name: "Moss"
+    description: "a small anthropomorphic hedgehog who stands and walks upright on two legs, about the height of a teacup, holding things in his small paws"
+    constant_traits: "brown and cream quills, a soft cream face, a round black nose, bright dark eyes, a tiny brass key on a string around his neck"
+    eras:
+      - id: young
+        look: "young, quills sharp and brown, a yellow oilskin raincoat a size too big, rubber boots"
+        ref: refs/moss-young.png
+      - id: old
+        look: "old, quills silvered at the tips, a knitted grey cardigan, small round spectacles, sitting in a worn armchair"
+        ref: refs/moss-old.png
+
+locations:
+  - id: lamp_room
+    description: "the round glass lamp room at the top of a stone lighthouse, a great brass lens in the middle, rain streaming down the windows"
+    lighting: "night; warm glow from the lens, cold blue lightning flashes through the glass"
+  - id: shore
+    description: "black rocks at the foot of a stone lighthouse, huge storm waves breaking, a dark sea"
+    lighting: "night storm; light comes only from the lighthouse beam and lightning"
+  - id: cottage
+    description: "a small cozy stone cottage room, a crackling fireplace, a worn armchair"
+    lighting: "warm firelight from the side"
+
+voice:
+  provider: elevenlabs
+  voice_id: "REPLACE_WITH_YOUR_ELEVENLABS_VOICE_ID"
+  model_id: eleven_v3
+  stability: 0.5
+  similarity_boost: 0.75
+  style: 0.5
+  use_speaker_boost: true
+  pronunciations: {}
+
+rules:
+  image:
+    - "Moss is tiny next to everything around him: the brass lens is many times his height."
+    - "Every prop a character touches is in the still; the video model will not add it later."
+  video:
+    - "Moss stays upright on two legs from the first frame to the last."
+    - "Calm, controlled, natural motion; no morphing, no character turning into another."
+  voice: []
+  story:
+    - "Narration describes what is on screen or the narrator's reflection, never off-screen dialogue."
+
+production:
+  backend: openrouter
+  text_model: google/gemini-2.5-flash
+  image_model: google/gemini-2.5-flash-image
+  video_model: google/veo-3.1-lite
+  video_resolution: 720p
+  higgsfield_image_model: nano_banana_pro
+  higgsfield_video_model: veo3_1_lite
+  max_rerolls: 2
+  max_slowdown: 1.25
+  elevenlabs_usd_per_1k_chars: 0.30
+  output_width: 1080
+  output_height: 1920
