@@ -295,7 +295,8 @@ class Episode:
         report = json.loads(self.review_path.read_text()) if self.review_path.is_file() else {}
         todo = [s for s in self.shots()
                 if self.force or s["id"] not in report
-                or report[s["id"]].get("still_mtime") != self._mtime(self.still(s["id"]))]
+                or report[s["id"]].get("still_mtime") != self._mtime(self.still(s["id"]))
+                or report[s["id"]].get("checklist") != self.checklist_hash(s)]
         if not todo:
             self.say("[review] every current still already reviewed, skipping")
             return
@@ -332,13 +333,18 @@ class Episode:
                 prompt = self.bible.still_prompt(s) + review.reroll_instruction(issues, reply.get("fix", ""))
                 self.backend.generate_image(prompt, [keep] + self.refs_for(s), path)
             report[s["id"]] = {"pass": passed, "issues": issues, "tries": attempt + 1,
-                               "still_mtime": self._mtime(path)}
+                               "still_mtime": self._mtime(path), "checklist": self.checklist_hash(s)}
             self.review_path.write_text(json.dumps(report, indent=2))
         self.write_contact_sheet()
         failed = [sid for sid, r in report.items() if not r["pass"]]
         if failed:
             self.say(f"[review] still failing after rerolls: {', '.join(failed)}. Look at contact-sheet.html; "
                      f"fix with `python3 -m mdk reject {self.series} {self.ep} <shot> --note \"...\"` or approve anyway.")
+
+    def checklist_hash(self, shot: dict) -> str:
+        """A verdict is only valid for the checklist it was judged against (bible rules change)."""
+        payload = json.dumps([self.bible.review_checklist(shot), shot.get("visual")])
+        return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
     @staticmethod
     def _mtime(p: Path) -> float | None:
@@ -365,21 +371,28 @@ class Episode:
         stamp = json.loads(self.approved_path.read_text()).get("stills", {})
         return all(stamp.get(s["id"]) == self._mtime(self.still(s["id"])) for s in self.shots())
 
-    def step_reject(self, sid: str, note: str) -> None:
+    def step_reject(self, sid: str, note: str | None, fresh: bool = False) -> None:
         board = self.board()
         shot = next((s for s in board["shots"] if s["id"] == f"{int(sid):02d}" or s["id"] == sid), None)
         if not shot:
             raise Halt(f"no shot {sid}")
+        if not fresh and not note:
+            raise Halt("give --note \"what to change\", or --fresh to regenerate from scratch")
         src = self.still(shot["id"])
         if not src.is_file():
             raise Halt(f"shot {shot['id']} has no still to reject")
         dest = self.dir / "stills" / "_rejected" / f"{shot['id']}.{int(time.time())}.png"
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src), dest)
-        shot["fix_note"], shot["rejected_still"] = note, str(dest)
+        if fresh:
+            shot.pop("fix_note", None)
+            shot.pop("rejected_still", None)
+            how = "makes it again from scratch (use this when the whole idea of the frame was wrong)"
+        else:
+            shot["fix_note"], shot["rejected_still"] = note, str(dest)
+            how = "edits it with your note instead of starting from scratch"
         self.board_path.write_text(storyboard.dumps(board))
-        self.say(f"[reject] shot {shot['id']} moved to {dest.relative_to(self.series)}; the next `stills` run "
-                 f"edits it with your note instead of starting from scratch.")
+        self.say(f"[reject] shot {shot['id']} moved to {dest.relative_to(self.series)}; the next `stills` run {how}.")
 
     # ---- clips ----------------------------------------------------------------------
     def clip_plan(self) -> list[tuple[dict, float, int]]:

@@ -36,7 +36,7 @@ motion: the wave surges up the rocks and falls back, spray drifting
 narration: [tense] Then came the storm the old ones still whisper about.
 
 ## Shot 5
-visual: The lamp room goes dark: the brass lens is unlit, young Moss stands upright in front of it, lit only by a cold flash of lightning, his eyes wide.
+visual: A pitch-black lamp room. The great lens behind young Moss is dark, cold, black glass with no glow anywhere inside it. Moss stands upright in front of it, his face and raincoat lit only by cold blue lightning from the window, his eyes wide and frightened.
 location: lamp_room
 characters: moss@young
 camera: slow push-in on Moss
@@ -44,9 +44,9 @@ motion: a single lightning flash fades, Moss takes one small step back, his rain
 narration: [hushed] And at midnight... [shocked] the light went out.
 
 ## Shot 6
-visual: From the dark lamp room window, a vast shadow moves across the stormy sea far below, small Moss in the corner of the frame pressed to the glass.
+visual: Looking down from the pitch-black lamp room through rain-streaked glass at the night sea far below. A huge dark shape, as long as a ship, glides just under the waves. Small Moss stands at the bottom left corner of the frame, paws pressed to the glass, seen from behind.
 location: lamp_room
 characters: moss@young
 camera: slow push-in past Moss toward the dark water
-motion: the shadow glides slowly under the waves, lightning flickers once
+motion: the huge dark shape glides slowly under the waves, lightning flickers once
 narration: [whispering] Because out there, in the dark... [ominous] something had been waiting for it to go out.

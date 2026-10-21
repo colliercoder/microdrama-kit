@@ -68,7 +68,7 @@ without asking (for scripts and agents). `--dry-run` makes zero paid calls.
 | `stills SERIES E01` | One keyframe per shot, locked to the character refs | per image |
 | `review SERIES E01` | Vision check of every still; failures get edited and rechecked | cents |
 | `approve SERIES E01` | The human storyboard gate | free |
-| `reject SERIES E01 03 --note "..."` | Reject one still; the next `stills` edits it with your note | free |
+| `reject SERIES E01 03 --note "..."` | Reject one still; the next `stills` edits it with your note (`--fresh` makes it again from scratch) | free |
 | `clips SERIES E01` | Image-to-video for each approved still | per second of video |
 | `assemble SERIES E01` | ffmpeg: clips timed to the narration, 9:16, loudness-normalized, captions | free |
 | `run SERIES E01` | All of the above in order, skipping steps whose outputs exist | sum |
@@ -164,6 +164,9 @@ narration: [quietly] The old keeper left me one brass key... [wistful] and two h
 **Prose:** write the episode as a short story and `storyboard` asks the text model to
 cut it into shots with the same fields. Either way, code checks the result before
 anything else runs (known characters and eras, numbers spelled out, under the time cap).
+
+Describe what the camera SEES, not what is missing. Image models handle "the lens is
+dark, cold, black glass" far better than "the lens is unlit".
 
 Narration tips: about 140 spoken words fits under 60 seconds. One to three audio tags
 per line, plain words in brackets. Ellipses for pauses. Lines describe what is on screen

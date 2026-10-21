@@ -110,7 +110,7 @@ def cmd_approve(args) -> None:
 
 
 def cmd_reject(args) -> None:
-    _episode(args).step_reject(args.shot, args.note)
+    _episode(args).step_reject(args.shot, args.note, fresh=args.fresh)
 
 
 def cmd_estimate(args) -> None:
@@ -244,7 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("series")
     p.add_argument("episode")
     p.add_argument("shot")
-    p.add_argument("--note", required=True)
+    p.add_argument("--note", help="what to change; the still is edited, keeping what was right")
+    p.add_argument("--fresh", action="store_true", help="regenerate from the shot description instead of editing")
     p.set_defaults(func=cmd_reject)
 
     p = sub.add_parser("run", help="the whole episode end to end, resuming from what exists", parents=[common])

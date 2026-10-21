@@ -379,6 +379,65 @@ class ReviewTests(unittest.TestCase):
         self.assertFalse(ok, "skipped checks must fail, whatever the model says overall")
 
 
+class GateTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.series = Path(self.tmp.name) / "show"
+        (self.series / "episodes/E01/stills").mkdir(parents=True)
+        (self.series / "show-bible.yaml").write_text((EXAMPLE / "show-bible.yaml").read_text())
+        board = storyboard.normalise(storyboard.parse_structured(
+            (EXAMPLE / "episodes/E01/script.md").read_text(), "E01"))
+        (self.series / "episodes/E01/storyboard.json").write_text(storyboard.dumps(board))
+        for s in board["shots"]:
+            (self.series / f"episodes/E01/stills/{s['id']}.png").write_bytes(b"png")
+
+    def tearDown(self):
+        from mdk import spend
+        spend.LEDGER = None
+        self.tmp.cleanup()
+
+    def test_reject_fresh_and_note(self):
+        from mdk.pipeline import Episode, Halt
+        ep = Episode(self.series, "E01")
+        with self.assertRaises(Halt):
+            ep.step_reject("2", None)
+        ep.step_reject("2", "make the key bigger")
+        self.assertEqual(ep.board()["shots"][1]["fix_note"], "make the key bigger")
+        ep.step_reject("3", None, fresh=True)
+        board = json.loads((self.series / "episodes/E01/storyboard.json").read_text())
+        self.assertNotIn("fix_note", board["shots"][2])
+        self.assertFalse((self.series / "episodes/E01/stills/03.png").exists())
+        self.assertEqual(len(list((self.series / "episodes/E01/stills/_rejected").iterdir())), 2)
+
+    def test_review_reruns_when_checklist_changes(self):
+        # Regression (paid E2E): a still failed under an old rule set and was never re-checked
+        # after the rules changed, because only the still's mtime was compared.
+        from mdk import openrouter
+        from mdk.pipeline import Episode
+        ep = Episode(self.series, "E01", yes=True)
+        calls = []
+
+        def fake_chat(model, system, user, images=None, **kw):
+            calls.append(1)
+            n = user.count("\n", user.index("Checklist:"), user.index("For EVERY")) - 2
+            return json.dumps({"checks": [{"n": i, "result": "pass"} for i in range(1, n + 1)]})
+        with mock.patch.object(openrouter, "chat", side_effect=fake_chat), \
+                mock.patch.object(openrouter, "text_pricing", return_value={"prompt": "0", "completion": "0"}), \
+                mock.patch.object(ep.backend, "image_estimate", return_value=(0.0, "")), \
+                mock.patch.object(ep, "refs_for", return_value=[]), \
+                mock.patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}), redirect_stdout(io.StringIO()):
+            ep.step_review()
+            self.assertEqual(len(calls), 6)
+            report = json.loads(ep.review_path.read_text())
+            self.assertTrue(all(r["pass"] for r in report.values()), report)
+            ep.step_review()
+            self.assertEqual(len(calls), 6, "nothing changed, so nothing is re-reviewed")
+            ep.bible.add_rule("image", "The sea is always dark green.")
+            ep.bible = Bible.load(self.series)
+            ep.step_review()
+            self.assertEqual(len(calls), 12, "a new rule must trigger a re-review of every still")
+
+
 class SpendTests(unittest.TestCase):
     def tearDown(self):
         from mdk import spend
