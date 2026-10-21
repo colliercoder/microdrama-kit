@@ -59,7 +59,7 @@ voice:
 
 rules:
   image:
-    - "Moss is tiny next to everything around him: the brass lens is many times his height."
+    - "Moss is tiny, about the height of a teacup: furniture, machinery and doors tower over him."
     - "Every prop a character touches is in the still; the video model will not add it later."
   video:
     - "Moss stays upright on two legs from the first frame to the last."

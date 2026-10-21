@@ -165,6 +165,10 @@ narration: [quietly] The old keeper left me one brass key... [wistful] and two h
 cut it into shots with the same fields. Either way, code checks the result before
 anything else runs (known characters and eras, numbers spelled out, under the time cap).
 
+A shot's `location` description is added to its prompt, so a location's signature object
+(a great lens in the middle of the lamp room) will appear in every shot set there. When a
+shot must not show it, leave `location:` empty and describe the frame in `visual:`.
+
 Describe what the camera SEES, not what is missing. Image models handle "the lens is
 dark, cold, black glass" far better than "the lens is unlit".
 

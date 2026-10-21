@@ -44,9 +44,9 @@ motion: a single lightning flash fades, Moss takes one small step back, his rain
 narration: [hushed] And at midnight... [shocked] the light went out.
 
 ## Shot 6
-visual: Looking down from the pitch-black lamp room through rain-streaked glass at the night sea far below. A huge dark shape, as long as a ship, glides just under the waves. Small Moss stands at the bottom left corner of the frame, paws pressed to the glass, seen from behind.
-location: lamp_room
+visual: Seen from behind, small Moss stands at the bottom of the frame with both paws pressed to a tall rain-streaked window in a pitch-black room. Beyond the glass, far below, the dark night sea, and just under the waves one huge long dark shadow, as long as a ship. The only light is cold blue lightning.
+location:
 characters: moss@young
 camera: slow push-in past Moss toward the dark water
-motion: the huge dark shape glides slowly under the waves, lightning flickers once
+motion: the huge dark shadow glides slowly under the waves, lightning flickers once
 narration: [whispering] Because out there, in the dark... [ominous] something had been waiting for it to go out.
