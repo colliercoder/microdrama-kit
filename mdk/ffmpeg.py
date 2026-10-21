@@ -1,6 +1,7 @@
 """ffmpeg and ffprobe. Command construction is pure (and tested); running is separate."""
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -8,9 +9,38 @@ from pathlib import Path
 LOUDNESS = "loudnorm=I=-14:TP=-1.5:LRA=11"   # common target for vertical social video
 
 
+def loudness_measure_cmd(audio: Path) -> list[str]:
+    """Pass 1 of 2: measure. A single loudnorm pass undershoots on real speech
+    (the paid test episode came out at -15.6 LUFS), so the mux uses measured values."""
+    return ["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio), "-af",
+            LOUDNESS + ":print_format=json", "-f", "null", "-"]
+
+
+def parse_loudness(stderr: str) -> dict | None:
+    start, end = stderr.rfind("{"), stderr.rfind("}")
+    if start == -1 or end == -1:
+        return None
+    try:
+        data = json.loads(stderr[start:end + 1])
+        return {k: data[k] for k in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")}
+    except (ValueError, KeyError):
+        return None
+
+
+def loudness_filter(measured: dict | None) -> str:
+    """Pass 2: linear normalization from the measurement (falls back to one pass)."""
+    if not measured:
+        return LOUDNESS
+    return (f"{LOUDNESS}:measured_I={measured['input_i']}:measured_TP={measured['input_tp']}"
+            f":measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}"
+            f":offset={measured['target_offset']}:linear=true")
+
+
 def canvas_filter(width: int, height: int, fps: int = 24) -> str:
-    return (f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
-            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}")
+    """Fill the frame: scale to cover, then center-crop. Never pad. A clip that comes
+    back at another aspect ratio would otherwise show black bars (seen in the paid test)."""
+    return (f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},setsar=1,fps={fps}")
 
 
 def segment_cmd(clip: Path, out: Path, target: float, factor: float,
@@ -34,7 +64,7 @@ def concat_cmd(list_file: Path, out: Path) -> list[str]:
 
 
 def mux_cmd(video: Path, narration: Path, out: Path, duration: float,
-            srt: Path | None = None, captions: str = "soft") -> list[str]:
+            srt: Path | None = None, captions: str = "soft", measured: dict | None = None) -> list[str]:
     """Final mux: one video track + the one continuous narration, loudness-normalized.
 
     captions: "burn" (needs ffmpeg built with libass), "soft" (selectable subtitle
@@ -53,7 +83,7 @@ def mux_cmd(video: Path, narration: Path, out: Path, duration: float,
                 "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p"]
     else:
         cmd += ["-c:v", "copy"]
-    cmd += ["-af", LOUDNESS, "-ar", "48000", "-c:a", "aac", "-b:a", "192k",
+    cmd += ["-af", loudness_filter(measured), "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", "192k",
             "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out)]
     return cmd
 
@@ -91,6 +121,56 @@ def duration(path: Path) -> float:
 def has_filter(name: str) -> bool:
     r = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True)
     return any(line.split()[1:2] == [name] for line in r.stdout.splitlines() if line.strip())
+
+
+def measure_loudness(audio: Path) -> dict | None:
+    r = subprocess.run(loudness_measure_cmd(audio), capture_output=True, text=True)
+    return parse_loudness(r.stderr)
+
+
+EDGES = {"top": "iw:ih*0.06:0:0", "bottom": "iw:ih*0.06:0:ih*0.94",
+         "left": "iw*0.08:ih:0:0", "right": "iw*0.08:ih:iw*0.92:0"}
+BAR_MAX_LUMA = 30   # a painted bar's brightest pixel stays near black; a dark scene's edge has detail
+
+
+def edge_luma_cmd(image: Path, edge: str) -> list[str]:
+    return ["ffmpeg", "-hide_banner", "-nostats", "-i", str(image), "-vf",
+            f"crop={EDGES[edge]},signalstats,metadata=print:key=lavfi.signalstats.YMAX",
+            "-f", "null", "-"]
+
+
+def parse_ymax(stderr: str) -> float | None:
+    import re
+    found = re.findall(r"YMAX=([0-9.]+)", stderr)
+    return float(found[-1]) if found else None
+
+
+def has_black_bands(ymax: dict) -> bool:
+    """True for letterbox (top AND bottom) or pillarbox (left AND right) bars painted into a
+    still. Image models sometimes do this; a crop cannot remove them. A dark night scene keeps
+    detail at its edges, so its brightest edge pixel stays well above BAR_MAX_LUMA."""
+    def bar(edge: str) -> bool:
+        v = ymax.get(edge)
+        return v is not None and v <= BAR_MAX_LUMA
+    return (bar("top") and bar("bottom")) or (bar("left") and bar("right"))
+
+
+def image_size(image: Path) -> tuple[int, int] | None:
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries",
+                        "stream=width,height", "-of", "csv=p=0", str(image)], capture_output=True, text=True)
+    try:
+        w, h = r.stdout.strip().split(",")[:2]
+        return int(w), int(h)
+    except ValueError:
+        return None
+
+
+def black_bands(image: Path) -> bool:
+    ymax = {}
+    for edge in EDGES:
+        r = subprocess.run(edge_luma_cmd(image, edge), capture_output=True, text=True)
+        ymax[edge] = parse_ymax(r.stderr)
+    return has_black_bands(ymax)
 
 
 def silences(audio: Path) -> str:

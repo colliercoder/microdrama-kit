@@ -322,6 +322,11 @@ class Episode:
                     self.prod["text_model"], review.SYSTEM, review.prompt(self.bible, s),
                     images=[path] + self.refs_for(s), max_tokens=2000))
                 passed, issues = review.decide(reply, len(self.bible.review_checklist(s)))
+                # Code check, not the model's opinion: black bars painted into the still.
+                if ffmpeg.black_bands(path):
+                    passed = False
+                    issues = issues + ["black letterbox or pillarbox bars at the frame edges; "
+                                       "the image must fill the whole 9:16 frame edge to edge"]
                 self.say(f"[review] shot {s['id']} try {attempt + 1}: {'PASS' if passed else 'FAIL'}"
                          + ("" if passed else "  " + " | ".join(issues)[:300]))
                 if passed or attempt >= max_rerolls:
@@ -509,7 +514,8 @@ class Episode:
                 self.say("[assemble] this ffmpeg has no 'subtitles' filter (needs libass); adding a soft "
                          "caption track instead. The .srt sits next to the video for your editor.")
                 captions = "soft"
-        ffmpeg.run(ffmpeg.mux_cmd(silent, self.vo, self.final, float(t["total"]), srt, captions))
+        ffmpeg.run(ffmpeg.mux_cmd(silent, self.vo, self.final, float(t["total"]), srt, captions,
+                                  measured=ffmpeg.measure_loudness(self.vo)))
         final_len = ffmpeg.duration(self.final)
         self.say(f"[assemble] {self.final.relative_to(self.series)}  {final_len:.1f}s"
                  + (f"  captions: {srt.name}" if srt else ""))

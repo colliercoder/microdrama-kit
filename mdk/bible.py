@@ -199,7 +199,7 @@ class Bible:
         style = self.data.get("style") or {}
         loc = self.location(shot.get("location"))
         chunks = [
-            "Vertical 9:16 cinematic film still, single frame.",
+            "Vertical 9:16 cinematic film still, single frame, the image fills the whole frame edge to edge.",
             f"Look: {style.get('look', 'cinematic')}.",
             f"Scene: {shot['visual']}",
         ]

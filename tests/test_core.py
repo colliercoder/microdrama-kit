@@ -232,15 +232,16 @@ class FfmpegTests(unittest.TestCase):
         cmd = ffmpeg.segment_cmd(Path("in.mp4"), Path("out.mp4"), 5.0, 1.25, 1080, 1920)
         vf = cmd[cmd.index("-filter:v") + 1]
         self.assertTrue(vf.startswith("setpts=1.25000*PTS,trim=duration=5.000,setpts=PTS-STARTPTS,"))
-        self.assertIn("scale=1080:1920:force_original_aspect_ratio=decrease", vf)
-        self.assertIn("pad=1080:1920", vf)
+        self.assertIn("scale=1080:1920:force_original_aspect_ratio=increase", vf)
+        self.assertIn("crop=1080:1920", vf)
+        self.assertNotIn("pad=", vf)  # black bars on off-aspect clips
         self.assertIn("-an", cmd)
 
     def test_mux_soft_burn_none(self):
         soft = ffmpeg.mux_cmd(Path("v.mp4"), Path("a.mp3"), Path("o.mp4"), 30.0, Path("o.srt"), "soft")
         self.assertIn("mov_text", soft)
         self.assertEqual(soft[soft.index("-c:v") + 1], "copy")
-        self.assertIn(ffmpeg.LOUDNESS, soft)
+        self.assertIn(ffmpeg.LOUDNESS, soft[soft.index("-af") + 1])
         self.assertEqual(soft[soft.index("-t") + 1], "30.000")
         burn = ffmpeg.mux_cmd(Path("v.mp4"), Path("a.mp3"), Path("o.mp4"), 30.0, Path("o.srt"), "burn")
         self.assertTrue(burn[burn.index("-vf") + 1].startswith("subtitles='o.srt'"))
@@ -248,6 +249,29 @@ class FfmpegTests(unittest.TestCase):
         none = ffmpeg.mux_cmd(Path("v.mp4"), Path("a.mp3"), Path("o.mp4"), 30.0, None, "none")
         self.assertNotIn("mov_text", none)
         self.assertEqual(none.count("-i"), 2)
+
+    def test_two_pass_loudness(self):
+        # Regression (paid E2E): single-pass loudnorm left real speech at -15.6 LUFS, not -14.
+        stderr = """[Parsed_loudnorm_0 @ 0x1]
+{
+	"input_i" : "-24.31",
+	"input_tp" : "-6.02",
+	"input_lra" : "5.10",
+	"input_thresh" : "-34.60",
+	"output_i" : "-14.50",
+	"target_offset" : "0.40"
+}"""
+        m = ffmpeg.parse_loudness(stderr)
+        self.assertEqual(m["input_i"], "-24.31")
+        f = ffmpeg.loudness_filter(m)
+        self.assertIn("measured_I=-24.31", f)
+        self.assertIn("linear=true", f)
+        self.assertIsNone(ffmpeg.parse_loudness("no json here"))
+        self.assertEqual(ffmpeg.loudness_filter(None), ffmpeg.LOUDNESS)
+        cmd = ffmpeg.mux_cmd(Path("v.mp4"), Path("a.mp3"), Path("o.mp4"), 30.0, None, "none", measured=m)
+        self.assertEqual(cmd[cmd.index("-af") + 1], f)
+        self.assertEqual(cmd[cmd.index("-ac") + 1], "2")
+        self.assertIn(":print_format=json", ffmpeg.loudness_measure_cmd(Path("a.mp3"))[6])
 
     def test_concat_list_escapes_quotes(self):
         text = ffmpeg.concat_list_text([Path("/tmp/it's.mp4")])
@@ -501,3 +525,28 @@ class DryRunTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BlackBandTests(unittest.TestCase):
+    """Image models sometimes paint cinema bars into a 9:16 still (seen in the paid test).
+    Values below are the measured edge YMAX of the real test stills."""
+
+    def test_parse_ymax_reads_last_value(self):
+        from mdk import ffmpeg
+        self.assertEqual(ffmpeg.parse_ymax("lavfi.signalstats.YMAX=19\nYMAX=17"), 17.0)
+        self.assertIsNone(ffmpeg.parse_ymax("nothing"))
+
+    def test_painted_bars_fail(self):
+        from mdk import ffmpeg
+        self.assertTrue(ffmpeg.has_black_bands({"top": 19, "bottom": 17, "left": 187, "right": 171}))  # letterbox
+        self.assertTrue(ffmpeg.has_black_bands({"top": 80, "bottom": 90, "left": 12, "right": 14}))    # pillarbox
+
+    def test_dark_scene_and_one_dark_edge_pass(self):
+        from mdk import ffmpeg
+        self.assertFalse(ffmpeg.has_black_bands({"top": 61, "bottom": 48, "left": 231, "right": 226}))  # night interior
+        self.assertFalse(ffmpeg.has_black_bands({"top": 10, "bottom": 140, "left": 200, "right": 200})) # one dark edge only
+        self.assertFalse(ffmpeg.has_black_bands({"top": None, "bottom": None}))
+
+    def test_still_prompt_asks_for_full_frame(self):
+        import mdk.bible as b
+        self.assertIn("fills the whole frame edge to edge", open(b.__file__).read())
