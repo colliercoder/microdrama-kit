@@ -559,3 +559,21 @@ class RerollRefsTests(unittest.TestCase):
         prev, ref = Path("04.v1.png"), Path("moss.png")
         self.assertEqual(reroll_refs(prev, [ref], barred=False), [prev, ref])
         self.assertEqual(reroll_refs(prev, [ref], barred=True), [ref])
+
+
+class StalenessTests(unittest.TestCase):
+    """A changed still must re-make its clip, and a changed clip must re-assemble (paid test bug)."""
+
+    def test_is_stale(self):
+        import os, tempfile
+        from pathlib import Path
+        from mdk.pipeline import is_stale
+        with tempfile.TemporaryDirectory() as d:
+            out, inp = Path(d, "clip.mp4"), Path(d, "still.png")
+            self.assertTrue(is_stale(out, [inp]))            # missing output
+            out.write_bytes(b"x"); inp.write_bytes(b"y")
+            os.utime(inp, (1000, 1000)); os.utime(out, (2000, 2000))
+            self.assertFalse(is_stale(out, [inp]))           # output newer
+            os.utime(inp, (3000, 3000))
+            self.assertTrue(is_stale(out, [inp]))            # input changed after
+            self.assertFalse(is_stale(out, [Path(d, "nope.png")]))  # missing input ignored

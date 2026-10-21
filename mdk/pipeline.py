@@ -25,6 +25,14 @@ from .bible import Bible
 TOKENS = {"storyboard": (3000, 3000), "review": (3500, 700), "bible": (1500, 3000)}
 
 
+def is_stale(output: Path, inputs: list[Path]) -> bool:
+    """True when output is missing or any existing input is newer than it."""
+    if not output.is_file():
+        return True
+    t = output.stat().st_mtime
+    return any(p.is_file() and p.stat().st_mtime > t for p in inputs)
+
+
 def reroll_refs(previous: Path, refs: list[Path], barred: bool) -> list[Path]:
     """Reference images for a reroll: the previous still (edit what was wrong) plus the
     character refs, except when the still has painted bars, which an edit would keep."""
@@ -76,6 +84,10 @@ class Episode:
 
     def still(self, sid: str) -> Path: return self.dir / "stills" / f"{sid}.png"
     def clip(self, sid: str) -> Path: return self.dir / "clips" / f"{sid}.mp4"
+
+    def clip_stale(self, sid: str) -> bool:
+        """A clip is out of date when it is missing or its still changed after it was made."""
+        return is_stale(self.clip(sid), [self.still(sid)])
 
     # ---- helpers ------------------------------------------------------------
     def say(self, msg: str) -> None:
@@ -430,7 +442,15 @@ class Episode:
                 raise Halt(f"storyboard not approved. Open {self.dir / 'contact-sheet.html'}, then run "
                            f"python3 -m mdk approve {self.series} {self.ep}")
         jobs = json.loads(self.jobs_path.read_text()) if self.jobs_path.is_file() else {}
-        plan = [(s, slot, d) for s, slot, d in self.clip_plan() if not self.clip(s["id"]).is_file() or self.force]
+        plan = [(s, slot, d) for s, slot, d in self.clip_plan() if self.clip_stale(s["id"]) or self.force]
+        for s, _, _ in plan:
+            old = self.clip(s["id"])
+            if old.is_file() and not self.dry_run:
+                # The still changed: archive the old clip and forget its job, so it is re-made.
+                archive = old.parent / "_stale"
+                archive.mkdir(exist_ok=True)
+                old.rename(archive / f"{s['id']}.{int(time.time())}.mp4")
+                jobs.pop(s["id"], None)
         if not plan:
             self.say("[clips] all clips exist, skipping")
             return
@@ -480,7 +500,8 @@ class Episode:
 
     # ---- assemble -------------------------------------------------------------------
     def step_assemble(self, captions: str = "soft") -> None:
-        if self.final.is_file() and not self.force:
+        inputs = [self.clip(s["id"]) for s in self.shots()] + [self.vo]
+        if self.final.is_file() and not self.force and not is_stale(self.final, inputs):
             self.say(f"[assemble] {self.final.relative_to(self.series)} exists, skipping (use --force to rebuild)")
             return
         if self.dry_run:
