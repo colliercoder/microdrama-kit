@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import cost, higgsfield, openrouter, validate
+from . import cost, higgsfield, openrouter, spend, validate
 
 
 class OpenRouterBackend:
@@ -44,10 +44,19 @@ class OpenRouterBackend:
         return cost.video_clip_cost(self.video_model().get("pricing_skus"), seconds, self.p["video_resolution"])
 
     def submit_video(self, prompt: str, still: Path, duration: int) -> dict:
-        return openrouter.submit_video(self.p["video_model"], prompt, still, duration, self.p["video_resolution"])
+        job = openrouter.submit_video(self.p["video_model"], prompt, still, duration, self.p["video_resolution"])
+        usd, basis = self.clip_estimate(duration)
+        # Booked at the estimate now so --max-spend sees it; corrected when the job reports its cost.
+        spend.record("openrouter", "video", self.p["video_model"], usd, estimated=True, detail=f"job {job.get('id')}: {basis}")
+        job["_estimated_usd"] = usd
+        return job
 
     def finish_video(self, job: dict, out: Path) -> Path:
         done = openrouter.wait_video(job)
+        actual = spend.usage_cost(done)
+        if actual is not None and job.get("_estimated_usd") is not None:
+            spend.record("openrouter", "video-adjust", self.p["video_model"], actual - job["_estimated_usd"],
+                         estimated=False, detail=f"job {job.get('id')}: actual {actual}")
         return openrouter.download_video(done, out)
 
 

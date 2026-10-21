@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from urllib.parse import quote
 
-from . import env, http
+from . import env, http, spend
 
 BASE = "https://openrouter.ai/api/v1"
 TERMINAL_FAIL = {"failed", "cancelled", "expired"}
@@ -89,7 +89,7 @@ def chat(model: str, system: str, user: str, images: list[Path] | None = None,
     if images:
         content = [{"type": "text", "text": user}] + [
             {"type": "image_url", "image_url": {"url": data_url(p)}} for p in images]
-    body = {"model": model, "max_tokens": max_tokens,
+    body = {"model": model, "max_tokens": max_tokens, "usage": {"include": True},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}]}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
@@ -101,6 +101,8 @@ def chat(model: str, system: str, user: str, images: list[Path] | None = None,
             raise
         body.pop("response_format")
         resp = http.request("POST", f"{BASE}/chat/completions", headers=_auth(), body=body, paid=True)
+    spend.record("openrouter", "text", model, spend.usage_cost(resp), estimated=False,
+                 detail="" if spend.usage_cost(resp) is not None else "no usage.cost in response")
     try:
         return resp["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError):
@@ -126,6 +128,8 @@ def generate_image(model: str, prompt: str, refs: list[Path], out: Path, aspect_
     if refs:
         body["input_references"] = [{"type": "image_url", "image_url": {"url": data_url(p)}} for p in refs]
     resp = http.request("POST", f"{BASE}/images", headers=_auth(), body=body, paid=True)
+    spend.record("openrouter", "image", model, spend.usage_cost(resp), estimated=False,
+                 detail="" if spend.usage_cost(resp) is not None else "no usage.cost in response")
     items = (resp or {}).get("data") or []
     if not items or not items[0].get("b64_json"):
         raise RuntimeError(f"image API returned no image: {json.dumps(resp)[:400]}")

@@ -9,12 +9,12 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from . import env, http
+from . import env, http, spend
 
 BASE = "https://api.elevenlabs.io/v1"
 
 
-def synthesize(text: str, voice: dict, out_mp3: Path) -> dict | None:
+def synthesize(text: str, voice: dict, out_mp3: Path, usd_per_1k_chars: float = 0.30) -> dict | None:
     """Write the take to out_mp3. Returns the alignment dict (or None)."""
     key = env.require("ELEVENLABS_API_KEY", "Get one at https://elevenlabs.io (Profile, API keys).")
     voice_id = voice.get("voice_id")
@@ -30,6 +30,8 @@ def synthesize(text: str, voice: dict, out_mp3: Path) -> dict | None:
     headers = {"xi-api-key": key, "Accept": "application/json"}
     resp = http.request("POST", f"{BASE}/text-to-speech/{voice_id}/with-timestamps?output_format=mp3_44100_128",
                         headers=headers, body=body, paid=True, timeout=600)
+    spend.record("elevenlabs", "voice", body["model_id"], len(text) / 1000 * usd_per_1k_chars, estimated=True,
+                 detail=f"{len(text)} characters")
     audio = resp.get("audio_base64") if isinstance(resp, dict) else None
     if not audio:
         raise RuntimeError("ElevenLabs returned no audio_base64")

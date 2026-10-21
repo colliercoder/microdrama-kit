@@ -18,7 +18,8 @@ TEMPLATES = KIT_ROOT / "templates"
 
 def _episode(args) -> Episode:
     return Episode(Path(args.series), args.episode, dry_run=args.dry_run, yes=args.yes,
-                   auto_approve=getattr(args, "auto_approve", False), force=getattr(args, "force", False))
+                   auto_approve=getattr(args, "auto_approve", False), force=getattr(args, "force", False),
+                   max_spend=getattr(args, "max_spend", None))
 
 
 def cmd_init(args) -> None:
@@ -126,6 +127,8 @@ def cmd_run(args) -> None:
         ep.step_storyboard()
     est = ep.estimate_all()
     print(f"\n{ep.bible.title} {ep.ep}: estimated spend for the remaining steps\n{est.render()}")
+    if not args.dry_run:
+        ep.guard(est.known_total, "this episode")
     if args.dry_run:
         print("\nDRY RUN: zero paid calls. What each step would do:")
     elif est.lines and not args.yes:
@@ -151,6 +154,10 @@ def cmd_run(args) -> None:
     ep.step_assemble(args.captions)
     if args.dry_run:
         print("\nDry run complete. Nothing was generated and nothing was spent.")
+    else:
+        from . import spend
+        print(f"\nSpend recorded for {ep.ep} (episodes/{ep.ep}/spend.jsonl): "
+              + ", ".join(f"{k} ${v:.2f}" for k, v in spend.summary().items()))
 
 
 def cmd_learn(args) -> None:
@@ -189,6 +196,8 @@ def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--dry-run", action="store_true", help="show the plan and costs; make zero paid calls")
     common.add_argument("--yes", action="store_true", help="approve the printed spend without asking")
+    common.add_argument("--max-spend", type=float, metavar="USD",
+                        help="hard cap for this episode; stops before any paid call that would cross it")
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("init", help="scaffold a new series folder from the template", parents=[common])

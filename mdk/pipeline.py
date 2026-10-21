@@ -18,7 +18,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import backends, cost, elevenlabs, ffmpeg, http, openrouter, review, storyboard, timing
+from . import backends, cost, elevenlabs, ffmpeg, http, openrouter, review, spend, storyboard, timing
 from .bible import Bible
 
 # Rough token budgets for the cost estimate of text steps.
@@ -31,7 +31,7 @@ class Halt(Exception):
 
 class Episode:
     def __init__(self, series_dir: Path, episode: str, *, dry_run: bool = False, yes: bool = False,
-                 auto_approve: bool = False, force: bool = False):
+                 auto_approve: bool = False, force: bool = False, max_spend: float | None = None):
         self.series = series_dir.resolve()
         self.ep = episode.upper() if episode.lower().startswith("e") else f"E{int(episode):02d}"
         self.dir = self.series / "episodes" / self.ep
@@ -43,9 +43,12 @@ class Episode:
         self.auto_approve = auto_approve
         self.force = force
         self.quiet_estimates = False   # `run` prints one episode estimate up front instead
+        self.max_spend = max_spend
         self._board: dict | None = None
         if dry_run:
             http.block_paid_calls()
+        else:
+            spend.LEDGER = self.dir / "spend.jsonl"
 
     # ---- paths ------------------------------------------------------------
     @property
@@ -105,6 +108,7 @@ class Episode:
             if not self.quiet_estimates:
                 self.say("  (dry run: nothing will be spent)")
             return False
+        self.guard(est.known_total, what)
         if self.yes:
             return True
         if not sys.stdin.isatty():
@@ -113,6 +117,15 @@ class Episode:
         if answer.strip().lower() not in ("y", "yes"):
             raise Halt("stopped: spend not approved")
         return True
+
+    def guard(self, next_usd: float | None, what: str) -> None:
+        """Stop before a paid call that would push this episode past --max-spend."""
+        if self.max_spend is None:
+            return
+        spent = spend.total()
+        if spent + (next_usd or 0.0) > self.max_spend:
+            raise Halt(f"stopped before {what}: spent ${spent:.2f} so far, this needs about ${next_usd or 0:.2f}, "
+                       f"and --max-spend is ${self.max_spend:.2f}")
 
     def _text_estimate(self, est: cost.Estimate, step: str, desc: str, n: int = 1) -> None:
         tin, tout = TOKENS[step]
@@ -177,7 +190,8 @@ class Episode:
         if not self.confirm(est, "narration"):
             self.say("[voice] dry run: would send the full episode narration as ONE request")
             return
-        alignment = elevenlabs.synthesize(text, self.bible.voice, self.vo)
+        alignment = elevenlabs.synthesize(text, self.bible.voice, self.vo,
+                                          float(self.prod["elevenlabs_usd_per_1k_chars"]))
         total = ffmpeg.duration(self.vo)
         durations = timing.blocks_from_alignment(alignment or {}, lines, total) if alignment else None
         method = "elevenlabs-timestamps"
@@ -286,7 +300,7 @@ class Episode:
             self.say("[review] every current still already reviewed, skipping")
             return
         self._need_text_model()
-        n_checks = len(self.bible.review_checklist())
+        n_checks = max(len(self.bible.review_checklist(s)) for s in todo)
         est = cost.Estimate()
         self._text_estimate(est, "review", f"vision check of {len(todo)} stills", n=len(todo))
         usd, basis = self.backend.image_estimate(n_refs=2)
@@ -306,12 +320,13 @@ class Episode:
                 reply = openrouter.extract_json(openrouter.chat(
                     self.prod["text_model"], review.SYSTEM, review.prompt(self.bible, s),
                     images=[path] + self.refs_for(s), max_tokens=2000))
-                passed, issues = review.decide(reply, n_checks)
+                passed, issues = review.decide(reply, len(self.bible.review_checklist(s)))
                 self.say(f"[review] shot {s['id']} try {attempt + 1}: {'PASS' if passed else 'FAIL'}"
                          + ("" if passed else "  " + " | ".join(issues)[:300]))
                 if passed or attempt >= max_rerolls:
                     break
                 attempt += 1
+                self.guard(self.backend.image_estimate(n_refs=2)[0], f"reroll of shot {s['id']}")
                 keep = path.with_name(f"{s['id']}.v{attempt}.png")
                 shutil.copy2(path, keep)
                 prompt = self.bible.still_prompt(s) + review.reroll_instruction(issues, reply.get("fix", ""))
@@ -412,6 +427,7 @@ class Episode:
         for s, slot, d in plan:
             if submitted(s["id"]):
                 continue
+            self.guard(self.backend.clip_estimate(d)[0], f"clip {s['id']}")
             jobs[s["id"]] = self.backend.submit_video(self.bible.motion_prompt(s), self.still(s["id"]), d)
             self.jobs_path.write_text(json.dumps(jobs, indent=2))  # saved at once: a crash must not re-pay
             self.say(f"[clips] shot {s['id']} submitted ({d}s)")
